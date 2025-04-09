@@ -3,4 +3,4 @@ Allow: /
 Disallow: /js/
 Disallow: /css/
 
-Sitemap: https://stv.lylares.com/sitemap.xml
+Sitemap: https://lt.berryapi.net/sitemap.xml
