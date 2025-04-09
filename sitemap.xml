@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
    <url>
-      <loc>https://stv.lylares.com/</loc>
+      <loc>https://lt.berryapi.net/</loc>
       <lastmod>2025-04-06</lastmod>
       <changefreq>weekly</changefreq>
       <priority>1.0</priority>
    </url>
    <url>
-      <loc>https://stv.lylares.com/about.html</loc>
+      <loc>https://lt.berryapi.net/about.html</loc>
       <lastmod>2025-04-06</lastmod>
       <changefreq>monthly</changefreq>
       <priority>0.8</priority>
    </url>
    <url>
-      <loc>https://stv.lylares.com/privacy.html</loc>
+      <loc>https://lt.berryapi.net/privacy.html</loc>
       <lastmod>2025-04-06</lastmod>
       <changefreq>monthly</changefreq>
       <priority>0.5</priority>
