@@ -32,6 +32,7 @@ button, .card-hover {
     transition: all 0.3s ease;
 }
 
+/* 改进卡片适应不同内容长度 */
 .card-hover {
     border: 1px solid var(--border-color);
     background: linear-gradient(135deg, var(--card-gradient-start), var(--card-gradient-end));
@@ -39,6 +40,25 @@ button, .card-hover {
     position: relative;
     overflow: hidden;
     border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 确保卡片内容区域高度一致性 */
+.card-hover .flex-grow {
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 针对不同长度的标题优化显示 */
+.card-hover h3 {
+    min-height: 3rem;  /* 至少能显示2行标题 */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    -webkit-line-clamp: 2; /* 最多显示2行 */
 }
 
 .card-hover::before {
@@ -172,6 +192,17 @@ body {
     }
 }
 
+/* 移动端布局优化 */
+@media screen and (max-width: 768px) {
+    .card-hover h3 {
+        min-height: 2.5rem;
+    }
+    
+    .card-hover .flex-grow {
+        min-height: 80px;
+    }
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -207,4 +238,48 @@ body {
     background: rgba(0, 204, 255, 0.15);
     border-color: var(--primary-color);
     box-shadow: 0 0 8px rgba(0, 204, 255, 0.3);
+}
+
+#yellowFilterToggle:checked + .toggle-bg {
+    background-color: var(--primary-color);
+}
+
+#yellowFilterToggle:checked ~ .toggle-dot {
+    transform: translateX(1.5rem);
+}
+
+#yellowFilterToggle:focus + .toggle-bg,
+#yellowFilterToggle:hover + .toggle-bg {
+    box-shadow: 0 0 0 2px rgba(0, 204, 255, 0.3);
+}
+
+/* 添加广告过滤开关的CSS */
+#adFilterToggle:checked + .toggle-bg {
+    background-color: var(--primary-color);
+}
+
+#adFilterToggle:checked ~ .toggle-dot {
+    transform: translateX(1.5rem);
+}
+
+#adFilterToggle:focus + .toggle-bg,
+#adFilterToggle:hover + .toggle-bg {
+    box-shadow: 0 0 0 2px rgba(0, 204, 255, 0.3);
+}
+
+.toggle-dot {
+    transition: transform 0.3s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-bg {
+    transition: background-color 0.3s ease-in-out;
+}
+
+#yellowFilterToggle:checked ~ .toggle-dot {
+    box-shadow: 0 2px 4px rgba(0, 204, 255, 0.3);
+}
+
+#adFilterToggle:checked ~ .toggle-dot {
+    box-shadow: 0 2px 4px rgba(0, 204, 255, 0.3);
 }

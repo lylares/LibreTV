@@ -1,5 +1,6 @@
 // 全局常量配置
-const PROXY_URL = 'https://proxy.mengze.vip/proxy/';
+
+const PROXY_URL = 'https://cors.zme.ink/';
 const HOPLAYER_URL = 'https://hoplayer.com/index.html';
 const SEARCH_HISTORY_KEY = 'videoSearchHistory';
 const MAX_HISTORY_ITEMS = 5;
@@ -18,10 +19,12 @@ const API_SITES = {
     heimuer: {
         api: 'https://json.heimuer.xyz',
         name: '黑木耳',
+        detail: 'https://heimuer.tv'
     },
     ffzy: {
         api: 'http://ffzy5.tv',
         name: '非凡影视',
+        detail: 'http://ffzy5.tv'
     },
     tyyszy: {
         api: 'https://tyyszy.com',
@@ -43,10 +46,24 @@ const API_SITES = {
         api: 'https://cjhwba.com',
         name: '新华为',
     },
+    jisu: {
+        api: 'https://jszyapi.com',
+        name: '极速资源',
+        detail: 'https://jszyapi.com'
+    },
     dbzy: {
         api: 'https://dbzy.com',
         name: '豆瓣资源',
     }
+};
+
+// 添加聚合搜索的配置选项
+const AGGREGATED_SEARCH_CONFIG = {
+    enabled: true,             // 是否启用聚合搜索
+    timeout: 8000,            // 单个源超时时间（毫秒）
+    maxResults: 10000,          // 最大结果数量
+    parallelRequests: true,   // 是否并行请求所有源
+    showSourceBadges: true    // 是否显示来源徽章
 };
 
 // 抽象API请求配置
@@ -82,7 +99,10 @@ const PLAYER_CONFIG = {
     width: '100%',
     height: '600',
     timeout: 15000,  // 播放器加载超时时间
-    filterAds: true  // 是否启用广告过滤
+    filterAds: true,  // 是否启用广告过滤
+    autoPlayNext: true,  // 默认启用自动连播功能
+    adFilteringEnabled: true, // 默认开启分片广告过滤
+    adFilteringStorage: 'adFilteringEnabled' // 存储广告过滤设置的键名
 };
 
 // 增加错误信息本地化
@@ -103,4 +123,15 @@ const SECURITY_CONFIG = {
         'heimuer.xyz',
         'ffzy5.tv'
     ]
+};
+
+// 添加多个自定义API源的配置
+const CUSTOM_API_CONFIG = {
+    separator: ',',           // 分隔符
+    maxSources: 5,            // 最大允许的自定义源数量
+    testTimeout: 5000,        // 测试超时时间(毫秒)
+    namePrefix: 'Custom-',    // 自定义源名称前缀
+    validateUrl: true,        // 验证URL格式
+    cacheResults: true,       // 缓存测试结果
+    cacheExpiry: 5184000000   // 缓存过期时间(2个月)
 };
