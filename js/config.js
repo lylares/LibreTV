@@ -8,12 +8,12 @@ const MAX_HISTORY_ITEMS = 5;
 // 注意：PASSWORD 环境变量是必需的，所有部署都必须设置密码以确保安全
 const PASSWORD_CONFIG = {
     localStorageKey: 'passwordVerified',  // 存储验证状态的键名
-    verificationTTL: 90 * 24 * 60 * 60 * 1000  // 验证有效期（90天，约3个月）
+    verificationTTL: 30 * 24 * 60 * 60 * 1000  // 验证有效期（30天，约1个月）
 };
 
 // 网站信息配置
 const SITE_CONFIG = {
-    name: 'LibreTV',
+    name: 'TuDouTV',
     url: 'https://libretv.is-an.org',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
@@ -24,7 +24,7 @@ const SITE_CONFIG = {
 const API_SITES = {
       dyttzy: {
         api: 'http://caiji.dyttzyapi.com/api.php/provide/vod',
-        name: '电影天堂资源',
+        name: '电影天堂',
         detail: 'http://caiji.dyttzyapi.com', 
     },
     ruyi: {
@@ -112,8 +112,17 @@ const API_SITES = {
     },
     lzi: {
         api: 'https://cj.lziapi.com/api.php/provide/vod/',
-        name: '量子资源站'
+        name: '量子资源'
+    },
+    ukuap:{
+        api: 'https://api.ukuapi88.com/api.php/provide/vod',
+        name: 'u酷资源'
+    },
+    soup:{
+        api: 'https://suoniapi.com/api.php/provide/vod',
+        name: '锁屏资源'
     }
+    
     //ARCHIVE https://telegra.ph/APIs-08-12
 };
 
