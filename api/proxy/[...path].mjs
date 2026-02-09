@@ -136,6 +136,16 @@ function getRandomUserAgent() {
     return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
+// 判断是否为二进制内容类型
+function isBinaryContent(contentType) {
+    if (!contentType) return false;
+    const binaryTypes = [
+        'image/', 'video/', 'audio/', 'application/octet-stream',
+        'application/pdf', 'application/zip', 'application/x-'
+    ];
+    return binaryTypes.some(type => contentType.toLowerCase().startsWith(type));
+}
+
 async function fetchContentWithType(targetUrl, requestHeaders) {
     // 准备请求头
     const headers = {
@@ -164,12 +174,24 @@ async function fetchContentWithType(targetUrl, requestHeaders) {
             throw err; // 抛出错误
         }
 
-        // 读取响应内容
-        const content = await response.text();
         const contentType = response.headers.get('content-type') || '';
-        logDebug(`请求成功: ${targetUrl}, Content-Type: ${contentType}, 内容长度: ${content.length}`);
+        const isBinary = isBinaryContent(contentType);
+        
+        // 根据内容类型选择读取方式
+        let content;
+        if (isBinary) {
+            // 对于二进制内容（如图片），使用 arrayBuffer
+            const arrayBuffer = await response.arrayBuffer();
+            content = arrayBuffer;
+            logDebug(`请求成功（二进制）: ${targetUrl}, Content-Type: ${contentType}, 内容长度: ${arrayBuffer.byteLength}`);
+        } else {
+            // 对于文本内容（如 M3U8），使用 text
+            content = await response.text();
+            logDebug(`请求成功（文本）: ${targetUrl}, Content-Type: ${contentType}, 内容长度: ${content.length}`);
+        }
+        
         // 返回结果
-        return { content, contentType, responseHeaders: response.headers };
+        return { content, contentType, responseHeaders: response.headers, isBinary };
 
     } catch (error) {
         // 捕获 fetch 本身的错误（网络、超时等）或上面抛出的 HTTP 错误
@@ -413,10 +435,30 @@ export default async function handler(req, res) {
         console.info(`开始处理目标 URL 的代理请求: ${targetUrl}`);
 
         // --- 获取并处理目标内容 ---
-        const { content, contentType, responseHeaders } = await fetchContentWithType(targetUrl, req.headers);
+        const { content, contentType, responseHeaders, isBinary } = await fetchContentWithType(targetUrl, req.headers);
+
+        // --- 如果是二进制内容（如图片），直接返回 ---
+        if (isBinary) {
+            console.info(`正在处理二进制内容 (类型: ${contentType}): ${targetUrl}`);
+            
+            // 设置响应头
+            res.setHeader('Cache-Control', `public, max-age=${CACHE_TTL}`);
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', '*');
+            
+            // 设置 Content-Type
+            if (contentType) {
+                res.setHeader('Content-Type', contentType);
+            }
+            
+            // 发送二进制内容
+            const buffer = Buffer.from(content);
+            res.status(200).send(buffer);
+            return;
 
         // --- 如果是 M3U8，处理并返回 ---
-        if (isM3u8Content(content, contentType)) {
+        } else if (isM3u8Content(content, contentType)) {
             console.info(`正在处理 M3U8 内容: ${targetUrl}`);
             const processedM3u8 = await processM3u8Content(targetUrl, content);
 
