@@ -123,6 +123,16 @@ function validateAuth(event) {
     return true;
 }
 
+// 判断是否为二进制内容类型
+function isBinaryContent(contentType) {
+    if (!contentType) return false;
+    const binaryTypes = [
+        'image/', 'video/', 'audio/', 'application/octet-stream',
+        'application/pdf', 'application/zip', 'application/x-'
+    ];
+    return binaryTypes.some(type => contentType.toLowerCase().startsWith(type));
+}
+
 async function fetchContentWithType(targetUrl, requestHeaders) {
     const headers = {
         'User-Agent': getRandomUserAgent(),
@@ -140,10 +150,25 @@ async function fetchContentWithType(targetUrl, requestHeaders) {
             const err = new Error(`HTTP error ${response.status}: ${response.statusText}. URL: ${targetUrl}. Body: ${errorBody.substring(0, 200)}`);
             err.status = response.status; throw err;
         }
-        const content = await response.text();
+        
         const contentType = response.headers.get('content-type') || '';
-        logDebug(`Fetch success: ${targetUrl}, Content-Type: ${contentType}, Length: ${content.length}`);
-        return { content, contentType, responseHeaders: response.headers };
+        const isBinary = isBinaryContent(contentType);
+        
+        // 根据内容类型选择读取方式
+        let content;
+        if (isBinary) {
+            // 对于二进制内容（如图片），使用 arrayBuffer，然后转换为 base64
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            content = buffer.toString('base64');
+            logDebug(`Fetch success (binary): ${targetUrl}, Content-Type: ${contentType}, Length: ${arrayBuffer.byteLength}`);
+        } else {
+            // 对于文本内容（如 M3U8），使用 text
+            content = await response.text();
+            logDebug(`Fetch success (text): ${targetUrl}, Content-Type: ${contentType}, Length: ${content.length}`);
+        }
+        
+        return { content, contentType, responseHeaders: response.headers, isBinary };
     } catch (error) {
         logDebug(`Fetch exception for ${targetUrl}: ${error.message}`);
         throw new Error(`Failed to fetch target URL ${targetUrl}: ${error.message}`);
@@ -271,10 +296,28 @@ export const handler = async (event, context) => {
         }
 
         // Fetch Original Content (Pass Netlify event headers)
-        const { content, contentType, responseHeaders } = await fetchContentWithType(targetUrl, event.headers);
+        const { content, contentType, responseHeaders, isBinary } = await fetchContentWithType(targetUrl, event.headers);
 
+        // --- Process if Binary Content (e.g., images) ---
+        if (isBinary) {
+            logDebug(`Processing binary content: ${targetUrl}, Type: ${contentType}`);
+            
+            // Prepare headers for Netlify response object
+            const netlifyHeaders = { ...corsHeaders };
+            if (contentType) {
+                netlifyHeaders['Content-Type'] = contentType;
+            }
+            netlifyHeaders['Cache-Control'] = `public, max-age=${CACHE_TTL}`;
+            
+            return {
+                statusCode: 200,
+                headers: netlifyHeaders,
+                body: content, // Base64 encoded binary content
+                isBase64Encoded: true, // Important: tell Netlify this is base64 encoded
+            };
+        }
         // --- Process if M3U8 ---
-        if (isM3u8Content(content, contentType)) {
+        else if (isM3u8Content(content, contentType)) {
             logDebug(`Processing M3U8 content: ${targetUrl}`);
             const processedM3u8 = await processM3u8Content(targetUrl, content);
 
@@ -291,8 +334,8 @@ export const handler = async (event, context) => {
                 body: processedM3u8, // Netlify expects body as string
             };
         } else {
-            // --- Return Original Content (Non-M3U8) ---
-            logDebug(`Returning non-M3U8 content directly: ${targetUrl}, Type: ${contentType}`);
+            // --- Return Original Content (Non-M3U8, Non-Binary) ---
+            logDebug(`Returning non-M3U8, non-binary content directly: ${targetUrl}, Type: ${contentType}`);
 
             // Prepare headers for Netlify response object
             const netlifyHeaders = { ...corsHeaders };
@@ -311,7 +354,7 @@ export const handler = async (event, context) => {
                 statusCode: 200,
                 headers: netlifyHeaders,
                 body: content, // Body as string
-                // isBase64Encoded: false, // Set true only if returning binary data as base64
+                isBase64Encoded: false, // Text content, not base64
             };
         }
 
