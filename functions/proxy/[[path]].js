@@ -246,6 +246,16 @@ export async function onRequest(context) {
         return `/proxy/${encodeURIComponent(targetUrl)}`;
     }
 
+    // 判断是否为二进制内容类型
+    function isBinaryContent(contentType) {
+        if (!contentType) return false;
+        const binaryTypes = [
+            'image/', 'video/', 'audio/', 'application/octet-stream',
+            'application/pdf', 'application/zip', 'application/x-'
+        ];
+        return binaryTypes.some(type => contentType.toLowerCase().startsWith(type));
+    }
+
     // 获取远程内容及其类型
     async function fetchContentWithType(targetUrl) {
         const headers = new Headers({
@@ -269,11 +279,23 @@ export async function onRequest(context) {
                  throw new Error(`HTTP error ${response.status}: ${response.statusText}. URL: ${targetUrl}. Body: ${errorBody.substring(0, 150)}`);
             }
 
-            // 读取响应内容为文本
-            const content = await response.text();
             const contentType = response.headers.get('Content-Type') || '';
-            logDebug(`请求成功: ${targetUrl}, Content-Type: ${contentType}, 内容长度: ${content.length}`);
-            return { content, contentType, responseHeaders: response.headers }; // 同时返回原始响应头
+            const isBinary = isBinaryContent(contentType);
+            
+            // 根据内容类型选择读取方式
+            let content;
+            if (isBinary) {
+                // 对于二进制内容（如图片），使用 arrayBuffer
+                const arrayBuffer = await response.arrayBuffer();
+                content = arrayBuffer;
+                logDebug(`请求成功（二进制）: ${targetUrl}, Content-Type: ${contentType}, 内容长度: ${arrayBuffer.byteLength}`);
+            } else {
+                // 对于文本内容（如 M3U8），使用 text
+                content = await response.text();
+                logDebug(`请求成功（文本）: ${targetUrl}, Content-Type: ${contentType}, 内容长度: ${content.length}`);
+            }
+            
+            return { content, contentType, responseHeaders: response.headers, isBinary }; // 同时返回原始响应头和是否为二进制
 
         } catch (error) {
              logDebug(`请求彻底失败: ${targetUrl}: ${error.message}`);
@@ -539,10 +561,11 @@ export async function onRequest(context) {
         }
 
         // --- 实际请求 ---
-        const { content, contentType, responseHeaders } = await fetchContentWithType(targetUrl);
+        const { content, contentType, responseHeaders, isBinary } = await fetchContentWithType(targetUrl);
 
         // --- 写入缓存 (KV) ---
-        if (kvNamespace) {
+        if (kvNamespace && !isBinary) {
+             // 只缓存文本内容，不缓存二进制内容（图片等）
              try {
                  const headersToCache = {};
                  responseHeaders.forEach((value, key) => { headersToCache[key.toLowerCase()] = value; });
@@ -557,15 +580,48 @@ export async function onRequest(context) {
         }
 
         // --- 处理响应 ---
-        if (isM3u8Content(content, contentType)) {
+        if (isBinary) {
+            // 对于二进制内容（如图片），直接返回
+            logDebug(`内容是二进制 (类型: ${contentType})，直接返回: ${targetUrl}`);
+            
+            // 如果Content-Type为空，根据URL扩展名推断
+            let finalContentType = contentType;
+            if (!finalContentType) {
+                const urlLower = targetUrl.toLowerCase();
+                if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) {
+                    finalContentType = 'image/jpeg';
+                } else if (urlLower.includes('.png')) {
+                    finalContentType = 'image/png';
+                } else if (urlLower.includes('.gif')) {
+                    finalContentType = 'image/gif';
+                } else if (urlLower.includes('.webp')) {
+                    finalContentType = 'image/webp';
+                } else if (urlLower.includes('.svg')) {
+                    finalContentType = 'image/svg+xml';
+                } else {
+                    finalContentType = 'image/jpeg'; // 默认使用JPEG
+                }
+                logDebug(`推断 Content-Type: ${finalContentType} for URL: ${targetUrl}`);
+            }
+            
+            const finalHeaders = new Headers(responseHeaders);
+            finalHeaders.set('Cache-Control', `public, max-age=${CACHE_TTL}`);
+            // 添加 CORS 头，确保图片等二进制内容也能跨域访问
+            finalHeaders.set("Access-Control-Allow-Origin", "*");
+            finalHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+            finalHeaders.set("Access-Control-Allow-Headers", "*");
+            // 确保 Content-Type 正确设置
+            finalHeaders.set('Content-Type', finalContentType);
+            return new Response(content, { status: 200, headers: finalHeaders });
+        } else if (isM3u8Content(content, contentType)) {
             logDebug(`内容是 M3U8，开始处理: ${targetUrl}`);
             const processedM3u8 = await processM3u8Content(targetUrl, content, 0, env);
             return createM3u8Response(processedM3u8);
         } else {
-            logDebug(`内容不是 M3U8 (类型: ${contentType})，直接返回: ${targetUrl}`);
+            logDebug(`内容是文本 (类型: ${contentType})，直接返回: ${targetUrl}`);
             const finalHeaders = new Headers(responseHeaders);
             finalHeaders.set('Cache-Control', `public, max-age=${CACHE_TTL}`);
-            // 添加 CORS 头，确保非 M3U8 内容也能跨域访问（例如图片、字幕文件等）
+            // 添加 CORS 头，确保非 M3U8 内容也能跨域访问（例如字幕文件等）
             finalHeaders.set("Access-Control-Allow-Origin", "*");
             finalHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
             finalHeaders.set("Access-Control-Allow-Headers", "*");
